@@ -1,0 +1,21 @@
+{
+  "name": "cierre-de-turno",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-01-01",
+  "vars": {
+    "PAY_TO_WALLET": "0xfc4f1119794dead15502afadb8c0069092e54e5f"
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "LICENCIAS",
+      "id": "5674872a58f04bdaadaa225b43bb4e68"
+    }
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  }
+}
