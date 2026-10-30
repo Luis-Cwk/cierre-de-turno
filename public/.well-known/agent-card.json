@@ -1,0 +1,59 @@
+{
+  "protocolVersion": "0.30",
+  "name": "cierre-de-turno",
+  "description": "A thirty-second voice note (or text note) that closes your workday from your public GitHub activity: what you closed, what is still open, why it is stuck, and where to start tomorrow. No account, no streaks, no wellness questionnaire. The web app is free; the MCP is a one-time 5 USDC payment (x402, Base mainnet), no subscription.",
+  "tags": [
+    "developer-tools",
+    "wellbeing",
+    "github",
+    "mcp",
+    "x402",
+    "spanish"
+  ],
+  "preferredTransport": "JSONRPC",
+  "additionalInterfaces": [
+    {
+      "transport": "JSONRPC",
+      "url": "https://cierre-de-turno.petrasynthetic.workers.dev/mcp"
+    }
+  ],
+  "capabilities": {
+    "mcp": true,
+    "a2a": false,
+    "x402": true
+  },
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain", "audio/mpeg"],
+  "services": [
+    {
+      "name": "web",
+      "endpoint": "https://cierre-de-turno.petrasynthetic.workers.dev",
+      "price": "free"
+    },
+    {
+      "name": "mcp",
+      "endpoint": "https://cierre-de-turno.petrasynthetic.workers.dev/mcp",
+      "price": "one-time 5 USDC (x402, Base mainnet)",
+      "buyEndpoint": "https://cierre-de-turno.petrasynthetic.workers.dev/api/comprar",
+      "auth": { "type": "header", "name": "x-license" }
+    }
+  ],
+  "payment": {
+    "protocol": "x402",
+    "network": "base (eip155:8453)",
+    "asset": "USDC 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "payTo": "0xfc4f1119794dead15502afadb8c0069092e54e5f",
+    "pricing": { "mcp": "one-time 5 USDC", "web": "free" },
+    "howToBuy": "GET /api/comprar returns HTTP 402 with a standard PAYMENT-REQUIRED header; pay with any x402 client (x402-fetch, Dexter) and retry with X-PAYMENT. The response contains the license token for the x-license header."
+  },
+  "repository": "https://github.com/Luis-Cwk/cierre-de-turno",
+  "provider": {
+    "name": "Petra (Luis Betancourt)",
+    "url": "https://petrasynthetic.com"
+  },
+  "trust": {
+    "code": "public and auditable (Polyform Shield)",
+    "data": "reads public GitHub activity only; stores only license hashes and usage counts",
+    "reliability": "deterministic blocker extraction; script built from hand-written sentence frames guarded against hallucination"
+  }
+}
