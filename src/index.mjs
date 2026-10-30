@@ -3,6 +3,7 @@ import { armarNota } from "./nota.mjs";
 import { modeloDe } from "./modelo.mjs";
 import { porQueAtascado, bloqueoDeEstado } from "./contexto.mjs";
 import { verificarPago, crearLicencia, precio } from "./licencia.mjs";
+import { comprar as tienda } from "./comprar.mjs";
 import { sha256 } from "./hash.mjs";
 import { manejarMcp } from "./mcp.mjs";
 import { sintetizar } from "./voz.mjs";
@@ -22,8 +23,8 @@ export default {
       return nota(request, env);
     }
     if (url.pathname === "/api/comprar") {
-      if (request.method !== "POST") return new Response(null, { status: 405, headers: { Allow: "POST" }, ...cors() });
-      return comprar(request, env);
+      if (request.method !== "POST" && request.method !== "GET") return new Response(null, { status: 405, headers: { Allow: "GET, POST" }, ...cors() });
+      return tienda(request, env, json);
     }
     return new Response("No encontrado", { status: 404 });
   },
@@ -66,35 +67,16 @@ async function nota(request, env) {
   }
 }
 
-function json(datos, status = 200) {
+function json(datos, status = 200, extra = {}) {
   return new Response(JSON.stringify(datos), {
     status,
-    headers: { "Content-Type": "application/json; charset=utf-8" },
+    headers: { "Content-Type": "application/json; charset=utf-8", ...extra },
   });
 }
 
-// Compra: entra el pago x402 en el encabezado X-PAYMENT, se verifica y liquida
-// on-chain vía facilitador, y sale un token de licencia ligado a la wallet que pagó.
+// Compra: ver src/comprar.mjs (402 estándar x402 más liquidación y licencia).
 async function comprar(request, env) {
-  if (!env.LICENCIAS) {
-    return json({ error: "La tienda no está disponible en este momento." }, 503);
-  }
-  const pago = request.headers.get("X-PAYMENT");
-  const wallet = await verificarPago(env, pago);
-  if (!wallet) {
-    return json(
-      {
-        error: "No se verificó el pago.",
-        como_pagar:
-          "El pago es por el protocolo x402 (USDC en Base mainnet). Con una wallet que lo hable (o con x402-fetch), haz POST a /api/comprar y el pago viaja en el encabezado X-PAYMENT.",
-        precio: precio(),
-        payTo: env.PAY_TO_WALLET ?? null,
-      },
-      402
-    );
-  }
-  const token = await crearLicencia(env, wallet);
-  return json({ licencia: token, wallet, precio: precio(), como_usar: { "x-license": token } });
+  return tienda(request, env, json);
 }
 
 function base64(buffer) {
