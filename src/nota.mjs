@@ -17,12 +17,22 @@ Ejemplos:
 // y queda el título recortado. El cierre es lo único que puede mandar a apagar.
 const RECHAZO = /\b(porque|depende de|ya que|para que|debido a|gracias a|por lo tanto|entonces|mientras que|cierra|apaga|desconecta|abre|empieza)\b/i;
 
+// Cada hecho trae su antigüedad en horas (github.mjs). El tiempo va al inicio de la
+// frase para que la nota distinga lo de hoy de lo de hace dos días y no repita el
+// mismo guion como si todo hubiera pasado hoy.
+const cuandoDe = (hace) => {
+  if (hace == null) return "Hoy";
+  if (hace <= 24) return "Hoy";
+  if (hace <= 48) return "Ayer";
+  return `Hace ${Math.round(hace / 24)} días`;
+};
+
 const MARCOS = {
-  cerrado: (np) => `Cerraste ${np}.`,
-  abierto: (np) => `Sigue abierto ${np}.`,
-  revision: (np) => `Revisaste ${np}.`,
-  comentario: (np) => `Comentaste en ${np}.`,
-  trabajo: (np) => `Subiste cambios en ${np}.`,
+  cerrado: (np, t) => (t ? `${t} cerraste ${np}.` : `Cerraste ${np}.`),
+  abierto: (np, t) => (t ? `${t} abriste ${np}.` : `Abriste ${np}.`),
+  revision: (np, t) => (t ? `${t} revisaste ${np}.` : `Revisaste ${np}.`),
+  comentario: (np, t) => (t ? `${t} comentaste en ${np}.` : `Comentaste en ${np}.`),
+  trabajo: (np, t) => (t ? `${t} subiste cambios en ${np}.` : `Subiste cambios en ${np}.`),
 };
 
 // El cierre es UNA sola oración: el validador corta en el último punto y todo lo que
@@ -37,6 +47,12 @@ const CIERRES = {
     "Hoy no era día de cerrar cosas, y también cuenta.",
     "Hoy no se cerró nada, y eso también cuenta.",
     "Hoy fue un día de sostener, no de cerrar.",
+  ],
+  // Días sin actividad pública nueva: la nota lo dice en vez de repetir lo viejo.
+  sin_hoy: [
+    "Hoy no quedó rastro público y el día se cierra igual.",
+    "Hoy no hubo actividad pública, pero el día se acaba igual.",
+    "Hoy no se movió nada en público, y el día se cierra igual.",
   ],
   vacio: ["Hoy no se ve nada que cerrar, igual cierra la laptop, que mañana sigue."],
 };
@@ -90,8 +106,14 @@ export async function armarNota({ hechos, atascado, bloqueo }, modelo) {
 
   const frases = [];
   let k = 0;
+  let ultimoTiempo = null;
   for (const h of ordenados) {
-    frases.push(MARCOS[h.tipo](h.tipo === "trabajo" ? h.titulo : np[k++]));
+    // El tiempo se dice una vez por bloque: "Hoy cerraste A. Cerraste B." y no
+    // "Hoy cerraste A. Hoy cerraste B." que suena a relleno.
+    const t = cuandoDe(h.hace);
+    const repetido = t === ultimoTiempo;
+    frases.push(MARCOS[h.tipo](h.tipo === "trabajo" ? h.titulo : np[k++], repetido ? "" : t));
+    ultimoTiempo = t;
   }
 
   let manana = null;
@@ -104,7 +126,9 @@ export async function armarNota({ hechos, atascado, bloqueo }, modelo) {
     manana = "Y mañana empiezas por ahí.";
   }
 
-  const tipo = hechos.some((h) => h.tipo === "cerrado") ? "normal" : "flojo";
+  const hoy = hechos.filter((h) => (h.hace ?? 999) <= 24);
+  const hayCierreHoy = hoy.some((h) => h.tipo === "cerrado");
+  const tipo = hayCierreHoy ? "normal" : hoy.length > 0 ? "flojo" : "sin_hoy";
   const dia = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
   const cierre = CIERRES[tipo][dia % CIERRES[tipo].length];
 

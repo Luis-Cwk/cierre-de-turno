@@ -23,42 +23,48 @@ export async function hechosDe(usuario, token) {
   const eventos = respuesta ?? [];
   // Ventana de 3 días: la gente no trabaja todos los días y el demo tampoco puede
   // depender de que alguien haya empujado código en las últimas 24 horas.
-  const desde = Date.now() - MS_DIA * 3;
+  const ahora = Date.now();
+  const desde = ahora - MS_DIA * 3;
   const hechos = [];
   const vistos = new Set();
 
-  const agregar = (tipo, titulo) => {
+  const agregar = (tipo, titulo, cuando) => {
     if (!titulo || vistos.has(titulo)) return;
     vistos.add(titulo);
-    hechos.push({ tipo, titulo });
+    hechos.push({ tipo, titulo, hace: Math.max(0, Math.round((ahora - cuando) / 3600000)) });
   };
 
   for (const e of eventos) {
-    if (new Date(e.created_at).getTime() < desde) continue;
+    const fecha = new Date(e.created_at).getTime();
+    if (fecha < desde) continue;
     const pieza = e.payload?.pull_request ?? e.payload?.issue;
     const titulo = pieza?.title ?? "";
     switch (e.type) {
       case "PullRequestEvent":
-        if (e.payload.action === "closed" && pieza.merged) agregar("cerrado", titulo);
-        else if (e.payload.action === "opened") agregar("abierto", titulo);
+        if (e.payload.action === "closed" && pieza.merged) agregar("cerrado", titulo, fecha);
+        else if (e.payload.action === "opened") agregar("abierto", titulo, fecha);
         break;
       case "PullRequestReviewEvent":
-        agregar("revision", titulo);
+        agregar("revision", titulo, fecha);
         break;
       case "IssuesEvent":
-        if (e.payload.action === "closed") agregar("cerrado", titulo);
-        else if (e.payload.action === "opened") agregar("abierto", titulo);
+        if (e.payload.action === "closed") agregar("cerrado", titulo, fecha);
+        else if (e.payload.action === "opened") agregar("abierto", titulo, fecha);
         break;
       case "PushEvent":
-        agregar("trabajo", e.repo?.name?.split("/")[1] ?? "");
+        agregar("trabajo", e.repo?.name?.split("/")[1] ?? "", fecha);
         break;
       case "IssueCommentEvent":
-        agregar("comentario", titulo);
+        agregar("comentario", titulo, fecha);
         break;
       default:
         break;
     }
   }
+
+  // Lo más reciente primero: el corte a 5 debe quedarse con lo de hoy, no con lo que
+  // la API devuelva primero.
+  hechos.sort((a, b) => a.hace - b.hace);
 
   // Lo atascado viene de otra consulta: lo más viejo que sigue abierto.
   const atascado = await prAtascado(usuario, token);
