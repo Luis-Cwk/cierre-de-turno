@@ -122,7 +122,9 @@ export async function armarNota({ hechos, atascado, bloqueo }, modelo) {
     const retraso = atascado.dias >= 3 ? `, sin avance desde hace ${atascado.cuanto}` : "";
     // Firecrawl aporta qué lo frenó: es lo que hace la frase concreta en vez de un resumen.
     const espera = bloqueo ? `, esperando ${bloqueo}` : "";
-    frases.push(`Sigue abierto ${np[posicionAtascado]}${retraso}${espera}.`);
+    // "Queda pendiente" no concuerda en género con la frase nominal, que puede ser
+    // masculina o femenina según el título del PR.
+    frases.push(`Queda pendiente ${np[posicionAtascado]}${retraso}${espera}.`);
     manana = "Y mañana empiezas por ahí.";
   }
 

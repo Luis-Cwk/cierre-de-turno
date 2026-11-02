@@ -76,8 +76,11 @@ async function prAtascado(usuario, token) {
   const r = await api(`/search/issues?q=${consulta}&sort=created&order=asc&per_page=1`, token);
   const item = r?.items?.[0];
   if (!item) return null;
-  const dias = Math.max(1, Math.round((Date.now() - new Date(item.created_at).getTime()) / MS_DIA));
-  // Más de dos meses sin avance no es "atascado", es abandonado: no entra en la nota.
+  // El retraso se mide desde la última actividad, no desde que se abrió: un PR que
+  // recibió push o comentario ayer no está "sin avance".
+  const ultimo = new Date(item.updated_at ?? item.created_at).getTime();
+  const dias = Math.max(1, Math.round((Date.now() - ultimo) / MS_DIA));
+  // Más de dos meses sin tocarse no es "atascado", es abandonado: no entra en la nota.
   if (dias > 60) return null;
   const cuanto = dias === 1 ? "un día" : `${dias} días`;
   return { titulo: item.title, cuanto, dias, url: item.html_url };

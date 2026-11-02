@@ -20,21 +20,44 @@ No inventes causas ni nombres que no aparezcan en la página.`;
 export async function bloqueoDeEstado(url, token) {
   const m = String(url ?? "").match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
   if (!m) return null;
-  try {
-    const r = await fetch(`https://api.github.com/repos/${m[1]}/${m[2]}/pulls/${m[3]}`, {
+  const gh = (ruta) =>
+    fetch(`https://api.github.com${ruta}`, {
       headers: {
         Accept: "application/vnd.github+json",
         "User-Agent": "cierre-de-turno",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     });
+  try {
+    const r = await gh(`/repos/${m[1]}/${m[2]}/pulls/${m[3]}`);
     if (!r.ok) return null;
     const pr = await r.json();
     if (pr.mergeable_state === "dirty") return "los conflictos de fusión";
     if (pr.draft) return "su salida de borrador";
     if (pr.requested_reviewers?.length) return "una revisión de código";
-    // "blocked" = revisión o checks obligatorios pendientes; "unstable" = checks fallando.
-    if (pr.mergeable_state === "unstable") return "los tests que no pasan";
+    if (pr.mergeable_state === "unstable") {
+      // "unstable" puede ser un test que falla o un test que todavía no corre.
+      // Se distinguen con los checks del commit: fallo real contra pendiente.
+      const sha = pr.head?.sha;
+      if (sha) {
+        const [ch, st] = await Promise.all([
+          gh(`/repos/${m[1]}/${m[2]}/commits/${sha}/check-runs`),
+          gh(`/repos/${m[1]}/${m[2]}/commits/${sha}/status`),
+        ]);
+        const checks = ch.ok ? await ch.json() : null;
+        const status = st.ok ? await st.json() : null;
+        const fallo =
+          (checks?.check_runs ?? []).some((c) => c.conclusion === "failure" || c.conclusion === "timed_out") ||
+          (status?.statuses ?? []).some((s) => s.state === "failure" || s.state === "error");
+        if (fallo) return "los tests que fallan";
+        const pendiente =
+          (checks?.check_runs ?? []).some((c) => c.status === "queued" || c.status === "in_progress") ||
+          status?.state === "pending";
+        if (pendiente) return "los tests que aún no corren";
+        // Todo verde y mergeable: no hay test ni revisión pendiente, solo la fusión.
+        return "una decisión de quien mantiene el repo";
+      }
+    }
     if (pr.mergeable_state === "blocked") return "una revisión de código";
     return null;
   } catch {
