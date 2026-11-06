@@ -112,7 +112,8 @@ async function ejecutar(params, env, tokenLicencia) {
         true
       );
     }
-    const uso = await registrarUso(env, env.tokenLicencia);
+    console.log("MCP ok", usuario, licencia ? "lic-ok" : "nolic");
+    const uso = await registrarUso(env, tokenLicencia);
     if (!uso.ok) {
       return salida(`ERROR: TOPE_ALCANZADO. Usaste las llamadas de este mes con tu licencia. Vuelve a llamar al inicio del próximo mes.`, true);
     }
